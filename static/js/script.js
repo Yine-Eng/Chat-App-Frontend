@@ -11,6 +11,8 @@ var connectingElement = document.querySelector('.connecting');
 var stompClient = null; //This is the web socket
 var username = null;
 
+var backendUrl = "https://my-backend-domain/api/chat"; // I'll replace this once deployment on Railway is successful
+
 var colors = [
                '#007BA7', '#DC143C', '#9966CC', '#40E0D0',
                '#50C878', '#FF4500', '#FFD700', '#FF69B4'
@@ -26,7 +28,7 @@ function connect(event) {
         usernamePage.classList.add('hidden');
         chatPage.classList.remove('hidden');
 
-        var socket = new SockJS('/ws');
+        var socket = new SockJS(`${backendUrl}/ws`);
         stompClient = Stomp.over(socket);
 
         stompClient.connect({}, onConnected, onError);
@@ -52,22 +54,34 @@ function onError() {
     connectingElement.style.color = 'red';
 }
 
-function sendMessage (event) {
+function sendMessage(event) {
+    event.preventDefault();
     var messageContent = messageInput.value.trim();
+
     if (messageContent.length === 0) {
         return; // Do nothing if the message is empty
     }
 
-    if (messageContent && stompClient) {
-        var chatMessage = {
+    // REST API for sending a message
+    fetch(`${backendUrl}/sendMessage`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
             sender: username,
             content: messageContent,
-            type: 'CHAT'
-        };
-        stompClient.send('/app/chat.sendMessage', {}, JSON.stringify(chatMessage));
-        messageInput.value = ''; // Clear the message input
-    }
-    event.preventDefault(); // Prevent form submission
+            type: 'CHAT',
+        }),
+    })
+        .then((response) => response.json())
+        .then((data) => {
+            console.log("Message sent:", data);
+            messageInput.value = ''; // Clear the message input
+        })
+        .catch((error) => {
+            console.error("Error while sending message:", error);
+        });
 }
 
 function onMessageReceived(payload) {
